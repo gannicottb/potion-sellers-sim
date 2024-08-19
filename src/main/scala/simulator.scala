@@ -1,16 +1,15 @@
 package games.wrg
 
-import cats.{Applicative, FlatMap, Functor, Monad, Monoid}
-import cats.data.State
+import Ingredient.*
+
 import cats.effect.std.Random
-import games.wrg.Ingredient.*
-import cats.syntax.all.*
 import cats.instances.list.*
-import cats.instances.vector.*
+import cats.syntax.all.*
+import cats.{Functor, Monad}
 
 import scala.annotation.tailrec
-import scala.util.Try
 import scala.collection.immutable.Map
+import scala.util.Try
 
 object simulator {
   type Stack = Vector[Card]
@@ -45,7 +44,7 @@ object simulator {
 
   case object VerySafe extends Strategy {
     def willFlip(boardState: BoardState): Boolean = {
-      import boardState._
+      import boardState.*
       limit - cauldron.filterNot(_.cured).map(_.grade).sum >= deck
         .maxBy(_.grade)
         .grade
@@ -54,7 +53,7 @@ object simulator {
 
   case object Gambler extends Strategy {
     def willFlip(boardState: BoardState): Boolean = {
-      import boardState._
+      import boardState.*
       val spaceRemaining = limit - cauldron.filterNot(_.cured).map(_.grade).sum
       // if the odds of flipping something that fits are 50%, we go for it
       val percentToNotExplode =

@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import simulator.{BoardState, Gambler, StarterDeck, TestCase, VerySafe}
 
 object Main extends IOApp.Simple {
-  def report(boardState: BoardState) = for {
+  def report(boardState: BoardState): IO[Unit] = for {
     _ <- IO.println(boardState.cauldron)
     _ <- {
       if (boardState.exploded) IO.println("BOOM!")
@@ -17,7 +17,7 @@ object Main extends IOApp.Simple {
     }
   } yield ()
 
-  def summary(batch: List[BoardState]) = for {
+  private def summary(batch: List[BoardState]) = for {
 //    _ <- batch.traverse(report)
     _ <- IO.println(
       s"Avg cards flipped = ${batch.map(_.cauldron.size).sum / batch.size.toDouble}"
@@ -30,7 +30,7 @@ object Main extends IOApp.Simple {
     )
   } yield ()
 
-  val run = {
+  val run: IO[Unit] = {
     val seed = Random.scalaUtilRandom[IO]
     for {
       _ <- List(VerySafe, Gambler).flatMap(strat =>
