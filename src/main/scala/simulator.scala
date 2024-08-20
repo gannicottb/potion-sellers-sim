@@ -21,9 +21,12 @@ object simulator {
       gold: Int = 0,
       exploded: Boolean = false
   ) {
+    def overLimit: Boolean = {
+      cauldron.filterNot(_.cured).map(_.grade).sum > limit
+    }
     def scored: BoardState = {
       val basePay = cauldron.size
-      if(exploded) {
+      if(exploded || overLimit) {
         this.copy(gold = this.gold + basePay)
       } else {
         val goldFrom3s = this.cauldron.filter(_.grade == 3).map(c =>
@@ -38,7 +41,7 @@ object simulator {
     }
   }
 
-  trait Strategy {
+  trait Strategy extends Product with Serializable {
     def willFlip(boardState: BoardState): Boolean
   }
 
@@ -62,6 +65,57 @@ object simulator {
     }
   }
 
+//  def calculateEV(boardState: BoardState)
+
+  case class Colin(verbose: Boolean = false) extends Strategy {
+    override def willFlip(boardState: BoardState): Boolean = {
+      // calculate expected value = sum(% chance of each outcome * reward)
+      val possibles = boardState.deck.zipWithIndex.map {
+        case (card, i) =>
+          val o = resolveFlip(boardState, i) // hypothetical
+          val newGold = o.scored.gold
+          val profit = newGold - boardState.scored.gold
+          card -> profit
+      }.groupMap(_._1)(_._2) // create a map of Card -> Vector[Int], so we can count % of duplicate cards
+      if(verbose) println(s"Colinbot sees $possibles")
+      val expectedValueOfFlipping = possibles.foldLeft(0.0){
+          case (sum, (k, v)) => sum + (v(0) * (v.length / boardState.deck.length.toDouble))
+        }
+      if(verbose) println(s"Colinbot says ev of flipping again is $expectedValueOfFlipping")
+      expectedValueOfFlipping > 0
+    }
+  }
+
+  // TODO: Gambler should take a percentage
+  // TODO: All strategies should(?) factor in the possibility of flipping a card that extends the sequence
+  //        So if you're at 5 with a 2 in pot, a Flora-2 is actually safe to flip
+  // TODO: In order to implement behavior for V-2 and S-2, need to answer this question:
+  // outcome(cauldron, possibleCard): BoardState
+  // basically the meat of the willFlip conditional that actually goes through the steps
+  // factor that out and make it something we can run hypotheticals with
+
+  // draw any card and get the rest of the deck
+  def drawFrom(deck: Stack, index: Int): (Card, Stack) = {
+    val (topN, rest) = deck.splitAt(index + 1) // index 0 -> top card (left side of vector)
+    val (a, Vector(n)) = topN.splitAt(topN.length - 1) // get the extras
+    n -> (a ++ rest)
+  }
+
+  extension (s: Stack)
+    def draw(index: Int): (Card, Stack) = drawFrom(s, index)
+
+  def resolveFlip(boardState: BoardState, index: Int = 0): BoardState = {
+    // flip and update the cauldron and deck
+    val (flipped, rest) = drawFrom(boardState.deck, index)
+    val afterFlip = BoardState(boardState.cauldron :+ flipped, rest, boardState.limit)
+    // resolve Flip effect
+    if (flipped.grade == 2) {
+      compendium
+        .get(flipped)
+        .fold(afterFlip)(_(afterFlip))
+    } else afterFlip
+  }
+
   @tailrec
   def flipOrPass(boardState: BoardState, strategy: Strategy): BoardState =
     boardState match {
@@ -69,21 +123,13 @@ object simulator {
       case BoardState(cauldron, Vector(), limit, gold, _) => boardState.scored
       // went over the limit so we're done
       case BoardState(cauldron, _, limit, gold, false)
-          if cauldron.filterNot(_.cured).map(_.grade).sum > limit =>
+          if boardState.overLimit =>
         boardState.copy(exploded = true).scored
       // otherwise...
       case _ =>
         if (strategy.willFlip(boardState)) {
           // flip and update the cauldron and deck
-          val (Vector(flipped), rest) = boardState.deck.splitAt(1)
-          val afterFlip = BoardState(boardState.cauldron :+ flipped, rest, boardState.limit)
-          // resolve Flip effect
-          val afterResolution = if(flipped.grade == 2) {
-            compendium
-              .get(flipped)
-              .fold(afterFlip)(fn => fn(afterFlip))
-          } else afterFlip
-
+          val afterResolution = resolveFlip(boardState)
           // recurse from there
           flipOrPass(
             afterResolution,
@@ -131,7 +177,7 @@ object simulator {
     }
   )
 
-  enum StarterDeck(val cards: Stack){
+  enum StarterDeck(val cards: Stack) {
     case A extends StarterDeck(
       Vector(
         Card(1, Slime),
@@ -184,7 +230,7 @@ object simulator {
       Card(2, Flora),
       Card(2, Soil)
     ))
-    case MineralDream extends StarterDeck(Vector(
+    case M extends StarterDeck(Vector(
       Card(1, Mineral),
       Card(1, Mineral),
       Card(1, Mineral),
@@ -208,6 +254,6 @@ object simulator {
   final case class TestCase(strategy: Strategy, starterDeck: StarterDeck)
   def run[F[_]: Monad](rnd: F[Random[F]], repetitions: Int, testCase: TestCase): F[List[BoardState]] = for {
     given Random[F] <- rnd
-    a <- List.fill(repetitions)(()).traverse(_ => runOnce[F](testCase))
+    a <- (0 until repetitions).toList.traverse(_ => runOnce[F](testCase))
   } yield a
 }
