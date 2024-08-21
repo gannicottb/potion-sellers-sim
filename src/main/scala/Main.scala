@@ -4,6 +4,7 @@ import cats.effect.{IO, IOApp}
 import cats.effect.std.Random
 import cats.syntax.all.*
 import simulator.*
+import Ingredient.*
 
 object Main extends IOApp.Simple {
   def report(boardState: BoardState): IO[Unit] = for {
@@ -35,36 +36,49 @@ object Main extends IOApp.Simple {
   type TestResult = (TestCase, List[BoardState])
   def formatTable(results: List[TestResult]): String = {
     val preamble = s"${results.head._2.length} repetitions each"
-    val header = " " * 18 + results.map(_._1.starterDeck.toString).distinct.mkString(" " * 4)
-    val table = results.groupBy { case (tc, res) => tc.strategy }.map {
-      case (strat, tcAndResults) =>
+    val header   = " " * 18 + results.map(_._1.starterDeck.toString).distinct.mkString(" " * 4)
+    val table = results
+      .groupBy { case (tc, res) => tc.strategy }
+      .map { case (strat, tcAndResults) =>
+        val allFinalStates = tcAndResults.flatMap(_._2)
+        val total          = allFinalStates.map(_.gold).sum / allFinalStates.length.toDouble
         List(
           s"$strat${" " * (16 - strat.toString.length)}|",
-          tcAndResults.map { case (tc, res) => f"${res.map(_.gold).sum / res.length.toDouble}%1.2f" }.mkString(" ")
+          tcAndResults
+            .map { case (tc, res) => f"${res.map(_.gold).sum / res.length.toDouble}%1.2f" }
+            .mkString(" "),
+          f"| $total%1.2f"
         ).mkString(" ")
-    }.mkString("\n")
+      }
+      .mkString("\n")
 
     List(
-      preamble, header, table
+      preamble,
+      header,
+      table
     ).mkString("\n")
   }
 
-
   val run: IO[Unit] = {
     val seed = Random.scalaUtilRandom[IO]
-    val testCases = List(VerySafe, Gambler, Colin()).flatMap(strat =>
-      simulator.StarterDeck.values.map(deck => TestCase(strat, deck)).toList
-    )
+    val testCases =
+      List(Gambler(0.0), Gambler(.1), Gambler(.5), Gambler(.75), Colin()).flatMap(strat =>
+        StarterDeck.values.map(deck => TestCase(strat, deck)).toList
+      )
     for {
 //      _ <- List(VerySafe, Gambler, Colin).flatMap(strat =>
 //        simulator.StarterDeck.values.map(deck => TestCase(strat, deck)).toList
 //      ).traverse(tc =>
 //        IO.println(tc) *> simulator.run[IO](seed, 1, tc).flatMap(summary)
 //      )
-      results <- testCases.traverse(tc =>
-        simulator.run[IO](seed, 100, tc).map(tc -> _)
-      )
-      _ <- IO.println(formatTable(results))
+      rng        <- seed
+      randomDeck <- rng.shuffleList(supply).map(_.grouped(6).take(1).toList.headOption)
+      _          <- IO.println(randomDeck)
+      // TODO: take the supply and build N M-card decks from it. Have Colinbot run the flip for each and print
+      //    the best performers
+      // Need to open TestCase up to take any Stack, not just StarterDeck enums
+      results <- testCases.traverse(tc => simulator.run[IO](seed, 1000, tc).map(tc -> _))
+      _       <- IO.println(formatTable(results))
     } yield ()
   }
 }
