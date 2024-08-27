@@ -1,9 +1,8 @@
 package games.wrg
 
 import Ingredient.*
-import simulator.Stack
 
-enum StarterDeck(val cards: Stack):
+enum StarterDeck(val cards: Cards)  extends Deck {
   case A
       extends StarterDeck(
         Vector(
@@ -70,15 +69,5 @@ enum StarterDeck(val cards: Stack):
           Card(2, Soil)
         )
       )
-  case M
-      extends StarterDeck(
-        Vector(
-          Card(1, Mineral),
-          Card(1, Mineral),
-          Card(1, Mineral),
-          Card(3, Mineral)
-        )
-      )
-  case V extends StarterDeck(A.cards :+ Card(3, Viscera))
-  case S extends StarterDeck(A.cards :+ Card(3, Slime))
-end StarterDeck
+}
+
