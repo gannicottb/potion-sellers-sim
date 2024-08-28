@@ -1,12 +1,12 @@
 package games.wrg
 
-import stateful.{PlayerBoard, Step}
+import stateful.{Compendium, PlayerBoard, Step}
 
 import cats.syntax.all.*
 
 case class Version(
-    flipEffects: Map[Card, Step],
-    sellEffects: Map[Card, Step],
+    flipEffects: Map[Card, Step]|Compendium,
+    sellEffects: Map[Card, Step]|Compendium,
     flipOnce: Step,
     sell: Step,
     initBoard: Cards => PlayerBoard

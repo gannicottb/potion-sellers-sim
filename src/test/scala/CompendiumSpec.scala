@@ -75,25 +75,9 @@ class CompendiumSpec extends AnyWordSpec with Matchers {
         Card(1, Mineral),Card(3, Slime, true),Card(1, Slime),Card(2, Fungus),Card(2, Soil)
       )
       val deck = Cards.empty
-//      val result = sell.runS(PlayerBoard(deck, cauldron)).value
-//      result.exploded shouldBe false
-//      result.gold shouldBe 7
-//
-//      val y = State.modify[PlayerBoard](b => b.copy(gold = 10)).runS(PlayerBoard(deck, cauldron)).value
-//      println(s"y = ${y.format}")
-//      y.gold shouldBe 10
-//
-//      val x = sellEffects(Card(3, Slime)).runS(PlayerBoard(deck, cauldron)).value
-//      x.totalUncuredGrade shouldBe 6
-//      x.cauldron.count(_.grade == 2) shouldBe 2
-//      println(x.format)
-//      println(x.gold) // how the hell is this happening, it prints 2
-//      x.gold shouldBe 2
-      sellEffects.get(Card(3, Slime, true)).isDefined shouldBe true
-      val justSells = resolveSellEffects(sellEffects).runS(PlayerBoard(deck, cauldron)).value
-      println(s"justSells = ${justSells.format}")
-      justSells.gold shouldBe 2
-
+      val result = sell.runS(PlayerBoard(deck, cauldron)).value
+      result.exploded shouldBe false
+      result.gold shouldBe 7
     }
   }
 

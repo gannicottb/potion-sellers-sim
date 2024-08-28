@@ -39,6 +39,14 @@ object stateful {
       PlayerBoard(deck, None, cauldron, limit, 0)
   }
 
+  trait Compendium {
+    def get(card: Card): Option[Step]
+
+    def contains(card: Card): Boolean = get(card).isDefined
+
+    def apply(card: Card): Step = get(card).get
+  }
+
 // Go from deck to flipped
   val flip: Step = State.modify { board =>
     board.deck match {
@@ -55,6 +63,13 @@ object stateful {
     for {
       b <- State.get[PlayerBoard]
       _ <- b.flipped.flatMap(m.get).getOrElse(State.pure(()))
+    } yield ()
+  }
+
+  def resolveFlip(comp: Compendium): Step = {
+    for {
+      b <- State.get[PlayerBoard]
+      _ <- b.flipped.flatMap(comp.get).getOrElse(State.pure(()))
     } yield ()
   }
 
