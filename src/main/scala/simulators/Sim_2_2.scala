@@ -9,33 +9,31 @@ import stateful.{PlayerBoard, Simulator, Step}
 object Sim_2_2 {
   import stateful.{addToCauldron, flip, resolveFlip}
 
-  def cureOneCard(pred: Card => Boolean): Step = State.modify { b =>
-    val (_, newCauldron) = b.cauldron
-      .foldLeft((false, Vector.empty[Card])) {
-        case ((false, result), c) if !c.cured && pred(c) =>
-          (true, result :+ c.copy(cured = true))
-        case ((other, result), c) => (other, result :+ c)
-      }
-    b.copy(cauldron = newCauldron)
-  }
-
-  val flipEffects: Map[Card, Step] = Map(
-    Card(2, Flora) -> cureOneCard(_.grade == 2),
-    Card(2, Fungus) -> State.modify { b =>
-      b.copy(limit = b.limit + 1)
-    },
-    Card(2, Soil) -> cureOneCard(_.grade == 3),
-    Card(2, Mineral) -> State.modify { b =>
-      // cure a 1 if able, otherwise get gold
-      b.cauldron.zipWithIndex
-        .find((c, i) => c.grade == 1 && !c.cured)
-        .fold(
-          b.modifyGold(_ + 1)
-        ) { case (card, idx) =>
-          b.copy(
-            cauldron = b.cauldron.updated(idx, card.copy(cured = true))
-          )
+  // Try to cure a card and return whether a card was cured
+  def cureOneCard(pred: Card => Boolean): State[PlayerBoard, Boolean] =
+    State.get[PlayerBoard].transform { (b, u) =>
+      val (curedOne, newCauldron) = b.cauldron
+        .foldLeft((false, Vector.empty[Card])) {
+          case ((false, result), c) if !c.cured && pred(c) =>
+            (true, result :+ c.copy(cured = true))
+          case ((other, result), c) => (other, result :+ c)
         }
+      b.copy(cauldron = newCauldron) -> curedOne
+    }
+  // Cure a card and discard the result
+  def cureOneCard_(pred: Card => Boolean): Step = cureOneCard(pred).map(_ => ())
+
+  // FIXME: curing a card makes it miss lookup here
+  // could have a string key like "Flora-2"
+  // could refactor as a function that pattern matches
+  // could use a tuple
+  val flipEffects: Map[Card, Step] = Map(
+    Card(2, Flora)  -> cureOneCard_(_.grade == 2),
+    Card(2, Fungus) -> State.modify { _.modifyLimit(_ + 1) },
+    Card(2, Soil)   -> cureOneCard_(_.grade == 3),
+    Card(2, Mineral) -> cureOneCard(_.grade == 1).flatMap { curedOne =>
+      if (curedOne) State.pure(())
+      else State.modify { _.modifyGold(_ + 1) }
     },
     Card(2, Viscera) -> State.modify { b =>
       // currently V-2 is in the limbo zone
@@ -73,7 +71,7 @@ object Sim_2_2 {
           .runS(b)
           .value
           .gold - currentGold
-        // println(s"resolving as $c yields $profit")
+//        println(s"resolving as $c yields $profit")
         profit
       )
       bestOption.fold(
@@ -83,7 +81,10 @@ object Sim_2_2 {
   )
 
   val sellEffects: Map[Card, Step] = Map(
-    Card(3, Slime) -> State.modify { b =>
+    Card(3, Slime, true) -> State.modify { b =>
+      b.modifyGold(_ + b.cauldron.count(_.grade == 2))
+    },
+    Card(3, Slime, false) -> State.modify { b =>
       b.modifyGold(_ + b.cauldron.count(_.grade == 2))
     },
     Card(3, Mineral) -> State.modify { b =>
@@ -109,15 +110,29 @@ object Sim_2_2 {
   }
 
   val scorePotion: Step = State.modify { b =>
-    if (b.exploded) b.modifyGold(_ + cauldronWithoutHighestGrades(b.cauldron).size)
-    else b.modifyGold(_ + b.cauldron.size)
+    if (b.exploded) {
+      b.modifyGold(_ + cauldronWithoutHighestGrades(b.cauldron).size)
+    } else {
+      b.modifyGold(_ + b.cauldron.size)
+    }
   }
 
   def resolveSellEffects(m: Map[Card, Step]): Step =
     for {
-      board <- State.get
+      board <- State.get[PlayerBoard]
+      // apply each applicable sell effect
+//      _ <- m.getOrElse(Card(3, Slime), State.pure(()))
+
+//      _ <- Vector(State.pure(()), m.getOrElse(Card(3, Slime), State.pure(())), State.pure(()))
+//        .fold(State.pure(()))(_ *> _)
+
       _ <- (if (board.exploded) cauldronWithoutHighestGrades(board.cauldron) else board.cauldron)
-        .map(c => m.getOrElse(c, State.pure(())))
+        .map { c =>
+          println(s"checking card $c")
+          val step = m.getOrElse(c, State.pure(()))
+          println(s"applying $step")
+          step
+        }
         .fold(State.pure(()))(_ *> _)
     } yield ()
 
@@ -130,6 +145,7 @@ object Sim_2_2 {
   val flipOnce: Step = flip *> resolveFlip(flipEffects) *> addToCauldron
   val sell: Step     = scorePotion *> resolveSellEffects(sellEffects)
 
-  val v = Version(flipEffects, sellEffects, flipOnce, sell, (cs: Cards) => PlayerBoard.apply(deck = cs))
+  val v: Version =
+    Version(flipEffects, sellEffects, flipOnce, sell, (cs: Cards) => PlayerBoard.apply(deck = cs))
   val simulator: Simulator = Simulator(v)
 }

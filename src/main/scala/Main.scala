@@ -71,10 +71,14 @@ object Main extends IOApp.Simple {
     for {
       // TODO: take the supply and build N M-card decks from it. Have Colinbot run the flip for each and print
       //    the best performers
-      _ <- runAndReport("v2.1 - Starter")(starterCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
-      _ <- runAndReport("v2.1 - Custom")(customCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
-      _ <- runAndReport("v2.2 - Starter")(starterCases, Sim_2_2.simulator.runShuffled(seed, 720, _))
-      _ <- runAndReport("v2.2 - Custom")(customCases, Sim_2_2.simulator.runShuffled(seed, 720, _))
+//      _ <- runAndReport("v2.1 - Starter")(starterCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
+//      _ <- runAndReport("v2.1 - Custom")(customCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
+//      _ <- runAndReport("v2.2 - Starter")(starterCases, Sim_2_2.simulator.runShuffled(seed, 720, _))
+//      _ <- runAndReport("v2.2 - Custom")(customCases, Sim_2_2.simulator.runShuffled(seed, 720, _))
+      _ <- runAndReport("v2.2 - Colin")(
+        List(SimCase(EVCalc(true), LabeledDeck(CustomDeck.S))),
+        Sim_2_2.simulator.runShuffled(seed, 1, _)
+      )
 //      c <- Sim_2_2.simulator.runShuffled(seed, 1, SimCase(EVCalc(true), LabeledDeck(StarterDeck.A)))
 //      _ <- IO.println("Colin EV")
 //      _ <- IO.println(s"$c")

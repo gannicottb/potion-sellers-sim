@@ -58,9 +58,9 @@ class SimSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  "2.2 sell when exploded" should {
+  "2.2 sell" should {
     import games.wrg.simulators.Sim_2_2.*
-    "work" in {
+    "ignore highest grades when exploded" in {
       val deck = Vector(Card(1, Viscera))
       val cauldron = Card(3, Soil) * 2
 
@@ -73,6 +73,15 @@ class SimSpec extends AnyWordSpec with Matchers {
       result.exploded shouldBe true
       result.gold shouldBe 1
     }
+    "work normally when not exploded" in {
+      val deck = Vector()
+      val cauldron = Card(3, Soil) * 2
+
+      val result = sell.runS(PlayerBoard(deck, cauldron)).value
+      result.exploded shouldBe false
+      result.gold shouldBe 10
+    }
+
   }
 
 }

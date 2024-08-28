@@ -1,7 +1,5 @@
 package games.wrg
 
-import stateful.HasCards
-
 import cats.Show
 
 trait Deck {

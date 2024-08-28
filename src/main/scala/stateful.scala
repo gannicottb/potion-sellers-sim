@@ -21,9 +21,10 @@ object stateful {
       limit: Int,
       gold: Int
   ) {
-    def totalUncuredGrade: Int                  = cauldron.filterNot(_.cured).map(_.grade).sum
-    def exploded: Boolean                       = totalUncuredGrade > limit
-    def modifyGold(fn: Int => Int): PlayerBoard = copy(gold = fn(gold))
+    def totalUncuredGrade: Int                   = cauldron.filterNot(_.cured).map(_.grade).sum
+    def exploded: Boolean                        = totalUncuredGrade > limit
+    def modifyGold(fn: Int => Int): PlayerBoard  = copy(gold = fn(gold))
+    def modifyLimit(fn: Int => Int): PlayerBoard = copy(limit = fn(limit))
     def format: String =
       List(
         s"Cauldron[${cauldron.size}](${cauldron
@@ -79,38 +80,36 @@ object stateful {
     def willFlip(board: PlayerBoard, version: Version): Boolean
   }
 
-  // This guy never learns
-  case object Goblin extends Player {
-    def willFlip(board: PlayerBoard, version: Version): Boolean = true
-  }
-
   // This one does the math (I think)
+  // Currently doesn't value curing cards
   // Players need to know what version of the game they're playing so that flipOnce and sell will work
   case class EVCalc(verbose: Boolean = false) extends Player {
     override def willFlip(board: PlayerBoard, version: Version): Boolean = {
       import version.*
       // calculate expected value = sum(% chance of each outcome * reward)
-      if(verbose) println(s"Given current board ${board.format}")
+      if (verbose) println(s"Given current board ${board.format}")
       val possibles = board.deck.zipWithIndex
         .map { case (card, i) =>
           // for each card, simulate flipping it and find out how much gold you gain/lose
           val predict = (moveCardToTopOfDeck(i) *> flipOnce *> sell).runS(board).value
-          if (verbose) println(s"predicting that if I flip $card the result will be ${predict.format}")
+          if (verbose)
+            println(s"$i> If I flip $card the result will be ${predict.format}")
           val diff = predict.gold - sell.runS(board).value.gold
           if (verbose)
             println(
-              s"The potential improvement is $diff (${predict.gold} - ${sell.runS(board).value.gold})"
+              s"The potential gold change is ${if (diff > 0) "+" else ""}$diff"
             )
           card -> diff
         }
         .groupMap(_._1)(_._2)
-      if (verbose) println(s"Colinbot sees $possibles")
+//      if (verbose) println(s"Colinbot sees $possibles")
       val expectedValueOfFlipping = possibles.foldLeft(0.0) { case (sum, (k, v)) =>
         sum + (v(0) * (v.length / board.deck.length.toDouble))
       }
       if (verbose) {
         println(s"Colinbot says ev of flipping again is $expectedValueOfFlipping")
-        if(expectedValueOfFlipping > 0) println(s"Colinbot will flip again") else println("Colinbot passes!")
+        if (expectedValueOfFlipping > 0) println(s"Colinbot will flip again")
+        else println("Colinbot passes!")
       }
       expectedValueOfFlipping > 0
     }
@@ -130,9 +129,6 @@ object stateful {
       percentToDie <= riskTolerance
     }
   }
-
-  trait HasCards[A]:
-    extension (a: A) def cards: Cards
 
   case class LabeledDeck(label: String, cards: Cards)
   object LabeledDeck {
@@ -176,11 +172,11 @@ object stateful {
         .map(d => brew(testCase.player).runS(initBoard(d)).value)
         .toList
     }
-    
+
     def runPermutationsPar[F[_]: Sync](testCase: SimCase): F[List[PlayerBoard]] =
-      testCase.startingDeck.cards.permutations.toList.traverse(d => 
+      testCase.startingDeck.cards.permutations.toList.traverse(d =>
         Sync[F].delay(brew(testCase.player).runS(initBoard(d)).value)
-    )
+      )
 
     def runShuffled[F[_]: Monad](
         rnd: F[Random[F]],
