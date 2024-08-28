@@ -12,9 +12,7 @@ object Cards {
 
   def empty = Vector.empty[Card]
 
-  type SingleOrVector[A] = A | Vector[A]
-
-  def apply(c: SingleOrVector[Card]*) = {
+  def apply(c: Card | Cards*): Cards = {
     c.toVector.foldLeft(Cards.empty) {
       case (res, cardOrCards) => cardOrCards match {
         case c: Card => res :+ c

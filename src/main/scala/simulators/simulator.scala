@@ -34,17 +34,20 @@ object simulator {
             .map(c => s"${c.subtype}-${c.grade}${if (c.cured) "*" else ""}")
             .mkString(",")})",
         s"Deck[${deck.size}](${deck.map(c => s"${c.subtype}-${c.grade}").mkString(",")})",
-        s"Gold: ${gold}, ${cauldron.filterNot(_.cured).map(_.grade).sum}/$limit"
-      ).mkString(",")
+        s"Gold: ${gold}, ${cauldron.filterNot(_.cured).map(_.grade).sum}/$limit",
+        s"Salt: ${if(saltAvailable)"Available" else "Used"}"
+      ).mkString(", ")
   }
   object PlayerBoard {
     def apply(deck: Cards, cauldron: Cards = Vector.empty[Card], limit: Int = 6): PlayerBoard =
       PlayerBoard(deck, None, cauldron, limit, 0, true)
+
+    given Show[PlayerBoard] = Show.show(_.format)
   }
 
   trait Compendium {
     def get(card: Card): Option[Step] = Try(apply(card)).toOption
-    def getOrElse(card: Card, default: Step) = get(card).getOrElse(default)
+    def getOrElse(card: Card, default: Step): Step = get(card).getOrElse(default)
     def contains(card: Card): Boolean = get(card).isDefined
 
     def apply(card: Card): Step
@@ -88,13 +91,18 @@ object simulator {
 
   // Starting to think Player should/could be part of PlayerBoard
   // would make this much simpler. Version too.
-  def useSaltOrNot(player: Player, version: Version): Step = State.modify { board =>
-    if(player.willSalt(board, version) && board.saltAvailable) board.copy(
+  def useSaltOrNot(player: Player, version: Version): Step =
+    State.get[PlayerBoard].flatMap { board =>
+      if(player.willSalt(board, version)) useSalt else State.pure(())
+    }
+
+  // No op if salt not available
+  val useSalt: Step = State.modify { board =>
+    if(board.saltAvailable) board.copy(
       gold = board.gold - 3,
       cauldron = board.cauldron.updated(board.cauldron.size - 1, board.cauldron.last.copy(cured = true)),
       saltAvailable = false
-    )
-    else board
+    ) else board
   }
 
   def moveCardToTopOfDeck(index: Int): Step = State.modify[PlayerBoard] { b =>
@@ -105,24 +113,25 @@ object simulator {
 
   trait Player extends Product with Serializable {
     def willFlip(board: PlayerBoard, version: Version): Boolean
-    def willSalt(board: PlayerBoard, version: Version): Boolean = false
+    def willSalt(board: PlayerBoard, version: Version): Boolean = {
+      import version.*
+      // calculate EV of using Salt
+      // somehow
+      // case 1: the card you flipped increases your payout by more than 3
+      // case 2: there is a juicy card still in your deck that you could flip if you salt now
+      // TODO: relying on cauldron order is a little sketchy, can we do inject this while the card is still in
+      //          `flipped`?
+      val ifSalt = (useSalt *> sell).runS(board).value
+      val ifNoSalt = sell.runS(board).value
+      val diff = ifSalt.gold - ifNoSalt.gold
+      board.saltAvailable && diff > 0
+    }
   }
 
   // This one does the math (I think)
   // Currently doesn't value curing cards
   // Players need to know what version of the game they're playing so that flipOnce and sell will work
   case class EVCalc(verbose: Boolean = false) extends Player {
-    override def willSalt(board: PlayerBoard, version: Version): Boolean = {
-      // calculate EV of using Salt
-      // somehow
-      // case 1: the card you flipped increases your payout by more than 3
-      // case 2: there is a juicy card still in your deck that you could flip if you salt now
-      // TODO: relying on cauldron order is a little sketchy
-      val goldWithoutMostRecentCard = version.sell.runS(board.copy(cauldron = board.cauldron.dropRight(1))).value.gold
-      val goldWithMostRecentCard = version.sell.runS(board).value.gold
-      val profitOfMostRecentCard = goldWithMostRecentCard - goldWithoutMostRecentCard
-      board.saltAvailable && profitOfMostRecentCard >= 3
-    }
     override def willFlip(board: PlayerBoard, version: Version): Boolean = {
       import version.*
       // calculate expected value = sum(% chance of each outcome * reward)

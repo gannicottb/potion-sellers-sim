@@ -1,9 +1,10 @@
 package games.wrg
 
-import simulators.Sim_2_1
-import games.wrg.simulators.simulator.*
+import simulators.{Sim_2_1, Sim_2_2}
 
+import games.wrg.simulators.simulator.*
 import Ingredient.*
+
 import cats.data.State
 import cats.syntax.all.*
 import org.scalatest.matchers.should.Matchers
@@ -84,6 +85,17 @@ class SimSpec extends AnyWordSpec with Matchers {
       result.gold shouldBe 10
     }
 
+  }
+
+  "2.2 SaltOrNot" should {
+    import simulators.Sim_2_2.*
+    "work" in {
+      val deck = Vector()
+      val cauldron = Cards(Card(2, Slime) * 3, Card(3, Slime))
+      val result = (useSaltOrNot(EVCalc(), v) *> sell).runS(PlayerBoard(deck, cauldron)).value
+      result.saltAvailable shouldBe false
+      result.gold shouldBe 4
+    }
   }
 
 }

@@ -40,4 +40,18 @@ enum CustomDeck(val cards: Cards) extends Deck {
       Card(3, Slime)
     )
   )
+
+  case SM extends CustomDeck(
+    Cards(
+      Card(2, Fungus) * 2,
+      Card(2, Flora),
+      Card(2, Viscera),
+      Card(2, Slime),
+      Card(1, Soil),
+      Card(1, Mineral),
+      Card(1, Mineral),
+      Card(3, Slime),
+      Card(3, Viscera)
+    )
+  )
 }
