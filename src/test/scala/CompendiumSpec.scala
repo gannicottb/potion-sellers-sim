@@ -2,7 +2,7 @@ package games.wrg
 
 import Ingredient.*
 import simulators.*
-import stateful.*
+import simulator.*
 
 import cats.data.State
 import cats.syntax.all.*

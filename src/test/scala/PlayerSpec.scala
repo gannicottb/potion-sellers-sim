@@ -1,7 +1,7 @@
 package games.wrg
 
 import simulators.Sim_2_1
-import stateful.{EVCalc, PlayerBoard}
+import games.wrg.simulators.simulator.{EVCalc, PlayerBoard}
 import Ingredient.*
 
 import org.scalatest.matchers.should.Matchers

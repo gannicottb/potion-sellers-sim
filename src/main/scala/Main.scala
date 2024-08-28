@@ -1,7 +1,7 @@
 package games.wrg
 
 import simulators.{Sim_2_1, Sim_2_2}
-import stateful.*
+import games.wrg.simulators.simulator.*
 
 import cats.effect.std.Random
 import cats.effect.{IO, IOApp}
@@ -46,7 +46,7 @@ object Main extends IOApp.Simple {
 
   val run: IO[Unit] = {
     val seed    = Random.scalaUtilRandom[IO]
-    val players = List(Gambler(0.0), Gambler(.1), Gambler(.5), Gambler(.75), Gambler(1.0), EVCalc())
+    val players = List(Gambler(0.0), Gambler(.5), Gambler(1.0), VibesBased(0.5), VibesBased(0.8), EVCalc())
 
     val starterCases = players
       .flatMap(player =>
@@ -71,6 +71,10 @@ object Main extends IOApp.Simple {
     for {
       // TODO: take the supply and build N M-card decks from it. Have Colinbot run the flip for each and print
       //    the best performers
+      // TODO: Remember that while interpreting this is only about playing out a deck, not finding the best
+      //     overall strategy. Multiple strategies are interesting but only insofar as it informs us about
+      //     the earning potential of certain cards and combinations.
+      // TODO: Implementing Salt use could be interesting
       _ <- runAndReport("v2.1 - Starter")(starterCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
       _ <- runAndReport("v2.1 - Custom")(customCases, Sim_2_1.simulator.runShuffled(seed, 720, _))
       _ <- runAndReport("v2.2 - Starter")(starterCases, Sim_2_2.simulator.runShuffled(seed, 720, _))

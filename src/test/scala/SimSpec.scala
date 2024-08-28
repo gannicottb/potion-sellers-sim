@@ -1,7 +1,7 @@
 package games.wrg
 
 import simulators.Sim_2_1
-import stateful.*
+import games.wrg.simulators.simulator.*
 
 import Ingredient.*
 import cats.data.State

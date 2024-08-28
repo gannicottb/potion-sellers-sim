@@ -4,10 +4,9 @@ import Ingredient.*
 
 import cats.data.State
 import cats.syntax.all.*
-import stateful.{Compendium, PlayerBoard, Simulator, Step}
+import simulator.*
 
 object Sim_2_2 {
-  import stateful.{addToCauldron, flip, resolveFlip}
 
   // Try to cure a card and return whether a card was cured
   def cureOneCard(pred: Card => Boolean): State[PlayerBoard, Boolean] =
@@ -22,14 +21,13 @@ object Sim_2_2 {
     }
   // Cure a card and discard the result
   def cureOneCard_(pred: Card => Boolean): Step = cureOneCard(pred).map(_ => ())
-  
+
   val flipComp: Compendium = {
     case Card(2, Fungus, _) =>
-      Some(State.modify {
+      State.modify {
         _.modifyLimit(_ + 1)
-      })
+      }
     case Card(2, Slime, _) =>
-      Some(
         State.get.flatMap { b =>
           val possibles = b.cauldron.filter(c => flipComp.contains(c) && c.subtype != Slime)
           // hypothetically resolve each effect. resolveFlipEffects currently assumes the resolver is in `flipped`
@@ -48,9 +46,7 @@ object Sim_2_2 {
             State.modify[PlayerBoard](_.modifyGold(_ + 1))
           )(flipComp.apply)
         }
-      )
     case Card(2, Mineral, _) =>
-      Some(
         cureOneCard(_.grade == 1).flatMap { curedOne =>
           if (curedOne) State.pure(())
           else
@@ -58,9 +54,7 @@ object Sim_2_2 {
               _.modifyGold(_ + 1)
             }
         }
-      )
     case Card(2, Viscera, _) =>
-      Some(
         State.modify { b =>
           // currently V-2 is in the limbo zone
           // Separate the top 3 cards from the deck
@@ -87,46 +81,35 @@ object Sim_2_2 {
           // the highest EV will be on top, the rest bottomed
           b.copy(deck = highestScoringDeck.getOrElse(b.deck))
         }
-      )
-    case Card(2, Flora, _) => Some(cureOneCard_(_.grade == 2))
-    case Card(2, Soil, _)  => Some(cureOneCard_(_.grade == 3))
-    case _                 => None
+    case Card(2, Flora, _) => cureOneCard_(_.grade == 2)
+    case Card(2, Soil, _)  => cureOneCard_(_.grade == 3)
   }
 
   val sellComp: Compendium = {
     case Card(3, Fungus, _) =>
-      Some(State.modify { b =>
+      State.modify { b =>
         b.modifyGold(_ + b.cauldron.map(_.grade).distinct.size * 2)
-      })
+      }
     case Card(3, Slime, _) =>
-      Some(State.modify { b =>
+      State.modify { b =>
         b.modifyGold(_ + b.cauldron.count(_.grade == 2))
-      })
+      }
     case Card(3, Mineral, _) =>
-      Some(
         State.modify { b =>
           b.modifyGold(_ + b.cauldron.count(_.subtype == Mineral) * 2)
         }
-      )
     case Card(3, Viscera, _) =>
-      Some(
         State.modify { b =>
           b.modifyGold(_ + b.cauldron.map(_.subtype).distinct.size)
         }
-      )
     case Card(3, Flora, _) =>
-      Some(
         State.modify { b =>
           b.modifyGold(_ + b.cauldron.count(_.cured) * 2)
         }
-      )
     case Card(3, Soil, _) =>
-      Some(
         State.modify { b =>
           b.modifyGold(_ + b.cauldron.count(_.grade == 3) * 2)
         }
-      )
-    case _ => None
   }
 
   def cauldronWithoutHighestGrades(cauldron: Cards): Cards = {
@@ -157,6 +140,7 @@ object Sim_2_2 {
   // some of the effects
   // So the definitions are codependent.
 
+  // salt goes in between resolveFlip and addToCauldron
   val flipOnce: Step = flip *> resolveFlip(flipComp) *> addToCauldron
   val sell: Step     = scorePotion *> resolveSellEffects(sellComp)
 

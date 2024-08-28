@@ -1,15 +1,17 @@
 package games.wrg
+package simulators
 
-import cats.data.{IndexedStateT, State}
-import cats.syntax.all.*
-import Ingredient.*
 import Cards.*
 
+import cats.data.{IndexedStateT, State}
 import cats.effect.kernel.Sync
 import cats.effect.std.Random
-import cats.{Eval, Monad, Parallel, Show, Traverse}
+import cats.syntax.all.*
+import cats.{Eval, Monad, Show}
 
-object stateful {
+import scala.util.Try
+
+object simulator {
   // A transition from one PlayerBoard to another
   type Step = State[PlayerBoard, Unit]
 
@@ -40,11 +42,11 @@ object stateful {
   }
 
   trait Compendium {
-    def get(card: Card): Option[Step]
-
+    def get(card: Card): Option[Step] = Try(apply(card)).toOption
+    def getOrElse(card: Card, default: Step) = get(card).getOrElse(default)
     def contains(card: Card): Boolean = get(card).isDefined
 
-    def apply(card: Card): Step = get(card).get
+    def apply(card: Card): Step
   }
 
 // Go from deck to flipped
@@ -132,8 +134,8 @@ object stateful {
 
   case class Gambler(riskTolerance: Double) extends Player {
     def willFlip(board: PlayerBoard, version: Version): Boolean = {
-      import version.*
       import board.*
+      import version.*
       val percentToDie = deck.zipWithIndex
         .map { case (card, i) =>
           val predict = (moveCardToTopOfDeck(i) *> flipOnce *> sell).runS(board).value
@@ -144,6 +146,16 @@ object stateful {
       percentToDie <= riskTolerance
     }
   }
+  
+  case class VibesBased(percentToFlip: Double) extends Player {
+    override def willFlip(board: PlayerBoard, version: Version): Boolean = {
+      // always flip until there's a chance of exploding, then only flip some of the time
+      if(board.limit - board.totalUncuredGrade <= board.deck.maxBy(_.grade).grade){
+        // randomly generate a double from 0 to 1.0
+        scala.util.Random.nextDouble() <= percentToFlip
+      } else true
+    }
+  } 
 
   case class LabeledDeck(label: String, cards: Cards)
   object LabeledDeck {

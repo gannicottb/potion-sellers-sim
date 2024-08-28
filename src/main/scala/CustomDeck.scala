@@ -26,6 +26,12 @@ enum CustomDeck(val cards: Cards) extends Deck {
     )
   )
   case S extends CustomDeck(StarterDeck.A.cards :+ Card(3, Slime))
+  case S2 extends CustomDeck(
+    Cards(
+      Card(2, Slime) * 2,
+      Card(1, Flora) * 4
+    )
+  )
 
   case VV extends CustomDeck(
     Cards(
