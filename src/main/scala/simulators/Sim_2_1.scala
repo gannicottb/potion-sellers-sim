@@ -1,7 +1,7 @@
 package games.wrg
 package simulators
 
-import stateful.{Simulator, Step}
+import stateful.{PlayerBoard, Simulator, Step}
 import Ingredient.*
 
 import cats.data.State
@@ -125,6 +125,6 @@ object Sim_2_1 {
     case _ => scorePotion *> resolveSellEffects(sellEffects)
   }
 
-  val v = Version(flipEffects, sellEffects, flipOnce, sell)
+  val v = Version(flipEffects, sellEffects, flipOnce, sell, (cs: Cards) => PlayerBoard.apply(cs))
   val simulator: Simulator = Simulator(v)
 }

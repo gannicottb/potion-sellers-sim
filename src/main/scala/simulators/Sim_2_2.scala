@@ -20,35 +20,10 @@ object Sim_2_2 {
   }
 
   val flipEffects: Map[Card, Step] = Map(
-//    Card(2, Flora) -> State.modify { b =>
-//      // cure another 2
-//      // I want some kind of mapWithBoolean for this
-//      val (_, newCauldron) = b.cauldron
-//        .foldLeft((false, Vector.empty[Card])) {
-//          case ((false, result), c) if !c.cured && c.grade == 2 =>
-//            (true, result :+ c.copy(cured = true))
-//          case ((other, result), c) => (other, result :+ c)
-//        }
-//      b.copy(
-//        cauldron = newCauldron
-//      )
-//    },
     Card(2, Flora) -> cureOneCard(_.grade == 2),
     Card(2, Fungus) -> State.modify { b =>
       b.copy(limit = b.limit + 1)
     },
-//    Card(2, Soil) -> State.modify { b =>
-//      // cure a 3
-//      b.cauldron.zipWithIndex
-//        .find((c, i) => c.grade == 3 && !c.cured)
-//        .fold(
-//          b
-//        ) { case (card, idx) =>
-//          b.copy(
-//            cauldron = b.cauldron.updated(idx, card.copy(cured = true))
-//          )
-//        }
-//    },
     Card(2, Soil) -> cureOneCard(_.grade == 3),
     Card(2, Mineral) -> State.modify { b =>
       // cure a 1 if able, otherwise get gold
@@ -155,8 +130,6 @@ object Sim_2_2 {
   val flipOnce: Step = flip *> resolveFlip(flipEffects) *> addToCauldron
   val sell: Step     = scorePotion *> resolveSellEffects(sellEffects)
 
-  // Version(flipEffects, sellEffects, sell)
-  // Player { def willFlip(playerBoard, version) }
-  val v = Version(flipEffects, sellEffects, flipOnce, sell)
+  val v = Version(flipEffects, sellEffects, flipOnce, sell, (cs: Cards) => PlayerBoard.apply(deck = cs))
   val simulator: Simulator = Simulator(v)
 }

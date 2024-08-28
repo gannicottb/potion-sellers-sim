@@ -9,4 +9,17 @@ object Cards {
       target +: (restOfTop ++ bottom)
     } else cs
   }
+
+  def empty = Vector.empty[Card]
+
+  type SingleOrVector[A] = A | Vector[A]
+
+  def apply(c: SingleOrVector[Card]*) = {
+    c.toVector.foldLeft(Cards.empty) {
+      case (res, cardOrCards) => cardOrCards match {
+        case c: Card => res :+ c
+        case cs: Cards => res ++ cs
+      }
+    }
+  }
 }

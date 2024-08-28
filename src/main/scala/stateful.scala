@@ -5,8 +5,9 @@ import cats.syntax.all.*
 import Ingredient.*
 import Cards.*
 
+import cats.effect.kernel.Sync
 import cats.effect.std.Random
-import cats.{Eval, Monad, Show}
+import cats.{Eval, Monad, Parallel, Show, Traverse}
 
 object stateful {
   // A transition from one PlayerBoard to another
@@ -33,10 +34,10 @@ object stateful {
       ).mkString(",")
   }
   object PlayerBoard {
-    def apply(deck: Cards, cauldron: Cards = Vector.empty[Card]): PlayerBoard =
-      PlayerBoard(deck, None, cauldron, 6, 0)
+    def apply(deck: Cards, cauldron: Cards = Vector.empty[Card], limit: Int = 6): PlayerBoard =
+      PlayerBoard(deck, None, cauldron, limit, 0)
   }
-  
+
 // Go from deck to flipped
   val flip: Step = State.modify { board =>
     board.deck match {
@@ -67,13 +68,13 @@ object stateful {
       )
     }
   }
-  
+
   def moveCardToTopOfDeck(index: Int): Step = State.modify[PlayerBoard] { b =>
     b.copy(
       deck = b.deck.putCardOnTop(index)
     )
   }
-  
+
   trait Player extends Product with Serializable {
     def willFlip(board: PlayerBoard, version: Version): Boolean
   }
@@ -115,7 +116,7 @@ object stateful {
     }
   }
 
-  case class Gambo(riskTolerance: Double) extends Player {
+  case class Gambler(riskTolerance: Double) extends Player {
     def willFlip(board: PlayerBoard, version: Version): Boolean = {
       import version.*
       import board.*
@@ -138,7 +139,7 @@ object stateful {
     def apply(d: Deck): LabeledDeck = LabeledDeck(Show[Deck].show(d), d.cards)
   }
   case class SimCase(player: Player, startingDeck: LabeledDeck)
-  
+
   case class Simulator(
       version: Version
   ) {
@@ -172,9 +173,14 @@ object stateful {
 
     def runPermutations(testCase: SimCase): List[PlayerBoard] = {
       testCase.startingDeck.cards.permutations
-        .map(d => brew(testCase.player).runS(PlayerBoard(d)).value)
+        .map(d => brew(testCase.player).runS(initBoard(d)).value)
         .toList
     }
+    
+    def runPermutationsPar[F[_]: Sync](testCase: SimCase): F[List[PlayerBoard]] =
+      testCase.startingDeck.cards.permutations.toList.traverse(d => 
+        Sync[F].delay(brew(testCase.player).runS(initBoard(d)).value)
+    )
 
     def runShuffled[F[_]: Monad](
         rnd: F[Random[F]],
@@ -186,7 +192,7 @@ object stateful {
         a <- (0 until repetitions).toList.traverse { _ =>
           Random[F]
             .shuffleVector(testCase.startingDeck.cards)
-            .map(shuffled => brew(testCase.player).runS(PlayerBoard(shuffled)).value)
+            .map(shuffled => brew(testCase.player).runS(initBoard(shuffled)).value)
         }
       } yield a
   }
