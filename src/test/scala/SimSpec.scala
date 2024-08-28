@@ -33,9 +33,11 @@ class SimSpec extends AnyWordSpec with Matchers {
   "resolveFlip" should {
     "work" in {
       val after: PlayerBoard =
-        (flip *> resolveFlip(Map(initial.deck.head -> State.modify[PlayerBoard] {
-          _.copy(gold = 100)
-        })))
+        (flip *> resolveFlip{
+          case c if c == initial.deck.head => State.modify[PlayerBoard] {
+            _.copy(gold = 100)
+          }
+        })
           .runS(initial)
           .value
       after.gold shouldBe 100
@@ -44,7 +46,7 @@ class SimSpec extends AnyWordSpec with Matchers {
 
   "addToCauldron" should {
     "work" in {
-      val after = (flip *> resolveFlip(Map.empty[Card, Step]) *> addToCauldron).runS(initial).value
+      val after = (flip *> resolveFlip(Compendium.empty) *> addToCauldron).runS(initial).value
       after.cauldron shouldBe initial.deck.take(1)
       after.flipped shouldBe None
       after.deck shouldBe initial.deck.drop(1)
@@ -53,7 +55,7 @@ class SimSpec extends AnyWordSpec with Matchers {
 
   "2.1 sell" should {
     "work" in {
-      val after = (flip *> resolveFlip(Map.empty[Card, Step]) *> addToCauldron *> Sim_2_1.sell).runS(initial).value
+      val after = (flip *> resolveFlip(Compendium.empty) *> addToCauldron *> Sim_2_1.sell).runS(initial).value
       after.gold shouldBe 1
     }
   }

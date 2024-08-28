@@ -12,5 +12,3 @@ object Deck {
   given Show[Deck] with
     override def show(t: Deck): String = t.toString
 }
-  
-

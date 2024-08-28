@@ -28,59 +28,59 @@ object Sim_2_2 {
         _.modifyLimit(_ + 1)
       }
     case Card(2, Slime, _) =>
-        State.get.flatMap { b =>
-          val possibles = b.cauldron.filter(c => flipComp.contains(c) && c.subtype != Slime)
-          // hypothetically resolve each effect. resolveFlipEffects currently assumes the resolver is in `flipped`
-          val currentGold = sell.runS(b).value.gold
-          val bestOption = possibles.maxByOption(c =>
-            // provide a fake map that says Slime-2 has the effect of the card we're evaluating
-            val profit =
-              (resolveFlip(Map(Card(2, Slime) -> flipComp(c))) *> addToCauldron *> sell)
-                .runS(b)
-                .value
-                .gold - currentGold
-            //        println(s"resolving as $c yields $profit")
-            profit
-          )
-          bestOption.fold(
-            State.modify[PlayerBoard](_.modifyGold(_ + 1))
-          )(flipComp.apply)
-        }
+      State.get.flatMap { b =>
+        val possibles = b.cauldron.filter(c => flipComp.contains(c) && c.subtype != Slime)
+        // hypothetically resolve each effect. resolveFlipEffects currently assumes the resolver is in `flipped`
+        val currentGold = sell.runS(b).value.gold
+        val bestOption = possibles.maxByOption(c =>
+          // provide a fake map that says Slime-2 has the effect of the card we're evaluating
+          val profit =
+            (resolveFlip { case Card(2, Slime, _) => flipComp(c) } *> addToCauldron *> sell)
+              .runS(b)
+              .value
+              .gold - currentGold
+          //        println(s"resolving as $c yields $profit")
+          profit
+        )
+        bestOption.fold(
+          State.modify[PlayerBoard](_.modifyGold(_ + 1))
+        )(flipComp.apply)
+      }
     case Card(2, Mineral, _) =>
-        cureOneCard(_.grade == 1).flatMap { curedOne =>
-          if (curedOne) State.pure(())
-          else
-            State.modify {
-              _.modifyGold(_ + 1)
-            }
-        }
-    case Card(2, Viscera, _) =>
-        State.modify { b =>
-          // currently V-2 is in the limbo zone
-          // Separate the top 3 cards from the deck
-          val (top3, deck) = b.deck.splitAt(3)
-          // create each possible configuration of the deck (default ordering for bottomed cards)
-          val possibleDecks = top3.permutations
-            .distinctBy(_.headOption)
-            .map {
-              case top +: rest => (top +: deck) ++ rest
-              case _           => Vector()
-            }
-            .toList
-          // println(s"possible configurations are: ${possibleDecks}")
-          val currentGold = sell.runS(b).value.gold
-          // println(s"current G = $currentGold, cauldron = ${b.cauldron}")
-          val highestScoringDeck = possibleDecks.maxByOption { d =>
-            // have to not forget to add the Viscera itself to the cauldron for the hypothetical
-            val profit =
-              (addToCauldron *> flipOnce *> sell).runS(b.copy(deck = d)).value.gold - currentGold
-            // println(s"putting ${d.headOption} on top yields $profit")
-            profit
+      cureOneCard(_.grade == 1).flatMap { curedOne =>
+        if (curedOne) State.pure(())
+        else
+          State.modify {
+            _.modifyGold(_ + 1)
           }
-          // println(s"${highestScoringDeck} yields highest G")
-          // the highest EV will be on top, the rest bottomed
-          b.copy(deck = highestScoringDeck.getOrElse(b.deck))
+      }
+    case Card(2, Viscera, _) =>
+      State.modify { b =>
+        // currently V-2 is in the limbo zone
+        // Separate the top 3 cards from the deck
+        val (top3, deck) = b.deck.splitAt(3)
+        // create each possible configuration of the deck (default ordering for bottomed cards)
+        val possibleDecks = top3.permutations
+          .distinctBy(_.headOption)
+          .map {
+            case top +: rest => (top +: deck) ++ rest
+            case _           => Vector()
+          }
+          .toList
+        // println(s"possible configurations are: ${possibleDecks}")
+        val currentGold = sell.runS(b).value.gold
+        // println(s"current G = $currentGold, cauldron = ${b.cauldron}")
+        val highestScoringDeck = possibleDecks.maxByOption { d =>
+          // have to not forget to add the Viscera itself to the cauldron for the hypothetical
+          val profit =
+            (addToCauldron *> flipOnce *> sell).runS(b.copy(deck = d)).value.gold - currentGold
+          // println(s"putting ${d.headOption} on top yields $profit")
+          profit
         }
+        // println(s"${highestScoringDeck} yields highest G")
+        // the highest EV will be on top, the rest bottomed
+        b.copy(deck = highestScoringDeck.getOrElse(b.deck))
+      }
     case Card(2, Flora, _) => cureOneCard_(_.grade == 2)
     case Card(2, Soil, _)  => cureOneCard_(_.grade == 3)
   }
@@ -95,21 +95,21 @@ object Sim_2_2 {
         b.modifyGold(_ + b.cauldron.count(_.grade == 2))
       }
     case Card(3, Mineral, _) =>
-        State.modify { b =>
-          b.modifyGold(_ + b.cauldron.count(_.subtype == Mineral) * 2)
-        }
+      State.modify { b =>
+        b.modifyGold(_ + b.cauldron.count(_.subtype == Mineral) * 2)
+      }
     case Card(3, Viscera, _) =>
-        State.modify { b =>
-          b.modifyGold(_ + b.cauldron.map(_.subtype).distinct.size)
-        }
+      State.modify { b =>
+        b.modifyGold(_ + b.cauldron.map(_.subtype).distinct.size)
+      }
     case Card(3, Flora, _) =>
-        State.modify { b =>
-          b.modifyGold(_ + b.cauldron.count(_.cured) * 2)
-        }
+      State.modify { b =>
+        b.modifyGold(_ + b.cauldron.count(_.cured) * 2)
+      }
     case Card(3, Soil, _) =>
-        State.modify { b =>
-          b.modifyGold(_ + b.cauldron.count(_.grade == 3) * 2)
-        }
+      State.modify { b =>
+        b.modifyGold(_ + b.cauldron.count(_.grade == 3) * 2)
+      }
   }
 
   def cauldronWithoutHighestGrades(cauldron: Cards): Cards = {

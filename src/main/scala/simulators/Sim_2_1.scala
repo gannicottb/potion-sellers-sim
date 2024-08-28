@@ -18,7 +18,7 @@ object Sim_2_1 {
       val currentGold = sell.runS(b).value.gold
       val bestOption = possibles.maxByOption(c =>
         // provide a fake map that says Slime-2 has the effect of the card we're evaluating
-        val profit = (resolveFlip(Map(Card(2, Slime) -> flipEffects(c))) *> addToCauldron *> sell)
+        val profit = (resolveFlip { case Card(2, Slime, _) => flipEffects(c) } *> addToCauldron *> sell)
           .runS(b)
           .value
           .gold - currentGold

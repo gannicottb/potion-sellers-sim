@@ -21,7 +21,8 @@ object simulator {
       flipped: Option[Card],
       cauldron: Cards,
       limit: Int,
-      gold: Int
+      gold: Int,
+      saltAvailable: Boolean
   ) {
     def totalUncuredGrade: Int                   = cauldron.filterNot(_.cured).map(_.grade).sum
     def exploded: Boolean                        = totalUncuredGrade > limit
@@ -38,7 +39,7 @@ object simulator {
   }
   object PlayerBoard {
     def apply(deck: Cards, cauldron: Cards = Vector.empty[Card], limit: Int = 6): PlayerBoard =
-      PlayerBoard(deck, None, cauldron, limit, 0)
+      PlayerBoard(deck, None, cauldron, limit, 0, true)
   }
 
   trait Compendium {
@@ -47,6 +48,11 @@ object simulator {
     def contains(card: Card): Boolean = get(card).isDefined
 
     def apply(card: Card): Step
+  }
+  object Compendium {
+    def empty: Compendium = (card: Card) => {
+      throw new MatchError("empty") // a little groady
+    }
   }
 
 // Go from deck to flipped
@@ -61,13 +67,6 @@ object simulator {
     }
   }
   // resolve the effect (if any) of the flipped card
-  def resolveFlip(m: Map[Card, Step]): Step = {
-    for {
-      b <- State.get[PlayerBoard]
-      _ <- b.flipped.flatMap(m.get).getOrElse(State.pure(()))
-    } yield ()
-  }
-
   def resolveFlip(comp: Compendium): Step = {
     for {
       b <- State.get[PlayerBoard]
@@ -87,6 +86,17 @@ object simulator {
     }
   }
 
+  // Starting to think Player should/could be part of PlayerBoard
+  // would make this much simpler. Version too.
+  def useSaltOrNot(player: Player, version: Version): Step = State.modify { board =>
+    if(player.willSalt(board, version) && board.saltAvailable) board.copy(
+      gold = board.gold - 3,
+      cauldron = board.cauldron.updated(board.cauldron.size - 1, board.cauldron.last.copy(cured = true)),
+      saltAvailable = false
+    )
+    else board
+  }
+
   def moveCardToTopOfDeck(index: Int): Step = State.modify[PlayerBoard] { b =>
     b.copy(
       deck = b.deck.putCardOnTop(index)
@@ -95,12 +105,24 @@ object simulator {
 
   trait Player extends Product with Serializable {
     def willFlip(board: PlayerBoard, version: Version): Boolean
+    def willSalt(board: PlayerBoard, version: Version): Boolean = false
   }
 
   // This one does the math (I think)
   // Currently doesn't value curing cards
   // Players need to know what version of the game they're playing so that flipOnce and sell will work
   case class EVCalc(verbose: Boolean = false) extends Player {
+    override def willSalt(board: PlayerBoard, version: Version): Boolean = {
+      // calculate EV of using Salt
+      // somehow
+      // case 1: the card you flipped increases your payout by more than 3
+      // case 2: there is a juicy card still in your deck that you could flip if you salt now
+      // TODO: relying on cauldron order is a little sketchy
+      val goldWithoutMostRecentCard = version.sell.runS(board.copy(cauldron = board.cauldron.dropRight(1))).value.gold
+      val goldWithMostRecentCard = version.sell.runS(board).value.gold
+      val profitOfMostRecentCard = goldWithMostRecentCard - goldWithoutMostRecentCard
+      board.saltAvailable && profitOfMostRecentCard >= 3
+    }
     override def willFlip(board: PlayerBoard, version: Version): Boolean = {
       import version.*
       // calculate expected value = sum(% chance of each outcome * reward)
@@ -146,7 +168,7 @@ object simulator {
       percentToDie <= riskTolerance
     }
   }
-  
+
   case class VibesBased(percentToFlip: Double) extends Player {
     override def willFlip(board: PlayerBoard, version: Version): Boolean = {
       // always flip until there's a chance of exploding, then only flip some of the time
@@ -155,7 +177,7 @@ object simulator {
         scala.util.Random.nextDouble() <= percentToFlip
       } else true
     }
-  } 
+  }
 
   case class LabeledDeck(label: String, cards: Cards)
   object LabeledDeck {
@@ -177,13 +199,13 @@ object simulator {
             if (verbose) println(s"$player exploded! scoring # of cards")
             sell
           // didn't explode, ran out of cards
-          case PlayerBoard(Vector(), _, _, _, _) =>
+          case PlayerBoard(Vector(), _, _, _, _, _) =>
             if (verbose) println(s"$player ran out of cards w/o exploding, scoring all")
             sell
           // didn't explode, have more cards, want to flip again
           case _ if player.willFlip(b, version) =>
             if (verbose) println(s"$player didn't explode, wants to go again")
-            flipOnce *> flipOrPass
+            flipOnce *> useSaltOrNot(player, version) *> flipOrPass
           // didn't explode, have more cards, don't want to flip
           case _ =>
             if (verbose) println(s"$player didn't explode, wants to pass")
