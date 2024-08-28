@@ -7,6 +7,12 @@ import cats.syntax.all.*
 import simulator.*
 
 object Sim_2_2 {
+  val supply: Cards =
+    for {
+      ingr  <- Ingredient.values.toVector
+      grade <- Vector(1, 2, 3)
+      card  <- Card(grade, ingr) * 4
+    } yield card
 
   // Try to cure a card and return whether a card was cured
   def cureOneCard(pred: Card => Boolean): State[PlayerBoard, Boolean] =

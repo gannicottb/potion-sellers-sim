@@ -97,5 +97,11 @@ class SimSpec extends AnyWordSpec with Matchers {
       result.gold shouldBe 4
     }
   }
+  
+  "2.2 Supply" should {
+    "have all the cards" in {
+      Sim_2_2.supply.size shouldBe 6 * 3 * 4
+    }
+  }
 
 }

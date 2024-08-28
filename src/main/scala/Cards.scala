@@ -1,5 +1,7 @@
 package games.wrg
 
+import cats.Show
+
 type Cards = Vector[Card]
 object Cards {
   extension (cs: Cards) {
@@ -9,6 +11,10 @@ object Cards {
       target +: (restOfTop ++ bottom)
     } else cs
   }
+
+  given Show[Cards] = Show.show(cs =>
+    s"(${cs.size})[" + cs.map(c => s"${c.subtype}-${c.grade}${if (c.cured) "*" else ""}").mkString(", ") + "]"
+  )
 
   def empty = Vector.empty[Card]
 

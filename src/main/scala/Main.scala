@@ -114,6 +114,12 @@ object Main extends IOApp.Simple {
         customCases,
         Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
       )
+      _ <- IO.println("GRAND TOURNAMENT")
+      given Random[IO] <- seed
+      results <- GrandTournament.run(Sim_2_2.supply, 6, EVCalc()){
+        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
+      }
+      _ <- IO.println(formatTableSim(results))
     } yield ()
   }
 }

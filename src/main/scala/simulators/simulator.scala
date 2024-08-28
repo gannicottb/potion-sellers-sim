@@ -2,6 +2,7 @@ package games.wrg
 package simulators
 
 import Cards.*
+import Cards.given
 
 import cats.data.{IndexedStateT, State}
 import cats.effect.kernel.Sync
@@ -30,11 +31,9 @@ object simulator {
     def modifyLimit(fn: Int => Int): PlayerBoard = copy(limit = fn(limit))
     def format: String =
       List(
-        s"Cauldron[${cauldron.size}](${cauldron
-            .map(c => s"${c.subtype}-${c.grade}${if (c.cured) "*" else ""}")
-            .mkString(",")})",
-        s"Deck[${deck.size}](${deck.map(c => s"${c.subtype}-${c.grade}").mkString(",")})",
-        s"Gold: ${gold}, ${cauldron.filterNot(_.cured).map(_.grade).sum}/$limit",
+        s"Cauldron${cauldron.show}",
+        s"Deck${deck.show}",
+        s"Gold: $gold, ${cauldron.filterNot(_.cured).map(_.grade).sum}/$limit",
         s"Salt: ${if(saltAvailable)"Available" else "Used"}"
       ).mkString(", ")
   }
