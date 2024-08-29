@@ -1,6 +1,7 @@
 package games.wrg
 
 import cats.Show
+import cats.syntax.show.*
 
 type Cards = Vector[Card]
 object Cards {
@@ -13,7 +14,7 @@ object Cards {
   }
 
   given Show[Cards] = Show.show(cs =>
-    s"(${cs.size})[" + cs.map(c => s"${c.subtype}-${c.grade}${if (c.cured) "*" else ""}").mkString(", ") + "]"
+    s"(${cs.size})[" + cs.map(_.show).mkString(", ") + "]"
   )
 
   def empty = Vector.empty[Card]

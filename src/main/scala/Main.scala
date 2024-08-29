@@ -98,25 +98,25 @@ object Main extends IOApp.Simple {
       // TODO: Remember that while interpreting this is only about playing out a deck, not finding the best
       //     overall strategy. Multiple strategies are interesting but only insofar as it informs us about
       //     the earning potential of certain cards and combinations.
-      _ <- runAndReport("v2.1 - Starter")(
-        starterCases,
-        Sim_2_1.simulator.runShuffled(seed, numRepetitions, _)
-      )
-      _ <- runAndReport("v2.1 - Custom")(
-        customCases,
-        Sim_2_1.simulator.runShuffled(seed, numRepetitions, _)
-      )
-      _ <- runAndReport("v2.2 - Starter")(
-        starterCases,
-        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
-      )
-      _ <- runAndReport("v2.2 - Custom")(
-        customCases,
-        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
-      )
+//      _ <- runAndReport("v2.1 - Starter")(
+//        starterCases,
+//        Sim_2_1.simulator.runShuffled(seed, numRepetitions, _)
+//      )
+//      _ <- runAndReport("v2.1 - Custom")(
+//        customCases,
+//        Sim_2_1.simulator.runShuffled(seed, numRepetitions, _)
+//      )
+//      _ <- runAndReport("v2.2 - Starter")(
+//        starterCases,
+//        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
+//      )
+//      _ <- runAndReport("v2.2 - Custom")(
+//        customCases,
+//        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
+//      )
       _ <- IO.println("GRAND TOURNAMENT")
       given Random[IO] <- seed
-      results <- GrandTournament.run(Sim_2_2.supply, 6, EVCalc()){
+      results <- GrandTournament.run(Sim_2_2.supply, 10, EVCalc()){
         Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
       }
       _ <- IO.println(formatTableSim(results))
