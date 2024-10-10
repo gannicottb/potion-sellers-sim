@@ -61,7 +61,7 @@ object Main extends IOApp.Simple {
   }
 
   val run: IO[Unit] = {
-    val seed    = Random.scalaUtilRandom[IO]
+    val seed = Random.scalaUtilRandom[IO]
     val players = List(
       Gambler(0.0),
       Gambler(.5),
@@ -114,12 +114,20 @@ object Main extends IOApp.Simple {
 //        customCases,
 //        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
 //      )
-      _ <- IO.println("GRAND TOURNAMENT")
-      given Random[IO] <- seed
-      results <- GrandTournament.run(Sim_2_2.supply, 10, EVCalc()){
-        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
-      }
-      _ <- IO.println(formatTableSim(results))
+//      _                <- IO.println("GRAND TOURNAMENT")
+//      given Random[IO] <- seed
+//      results <- GrandTournament.run(Sim_2_2.supply, 10, EVCalc()) {
+//        Sim_2_2.simulator.runShuffled(seed, numRepetitions, _)
+//      }
+//      _ <- IO.println(formatTableSim(results))
+
+      x <- IO(
+        NewSim(V2_1)
+          .brew(Goblin, true)
+          .runS(PlayerBoard.apply(Cards(Card(2, Ingredient.Viscera))))
+          .value
+      )
+      _ <- IO.println(s"${x.format}")
     } yield ()
   }
 }

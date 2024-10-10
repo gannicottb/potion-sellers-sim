@@ -52,7 +52,7 @@ object simulator {
     def apply(card: Card): Step
   }
   object Compendium {
-    def empty: Compendium = (card: Card) => {
+    def empty: Compendium = _ => {
       throw new MatchError("empty") // a little groady
     }
   }
